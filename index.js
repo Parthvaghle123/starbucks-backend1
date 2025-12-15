@@ -18,8 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 4500;
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 
-const clientid = "31050376942-66etnpqo1erq3r8tk7d3kgf79m9n2r88.apps.googleusercontent.com"
-const clientsecret = "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"
+const clientid = "1020775716394-sv2kt9rb3urv0ugt0aq1bit0du3gle37.apps.googleusercontent.com"
+const clientsecret ="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"
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
