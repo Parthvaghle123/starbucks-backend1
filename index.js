@@ -40,7 +40,7 @@ app.use(passport.session());
 passport.use(new OAuth2Strategy({
   clientID: clientid,
   clientSecret: clientsecret,
-  callbackURL: "/auth/google/callback",
+  callbackURL: "https://starbucks-backend1.onrender.com/auth/google/callback",
   scope: ["profile","email"]
 }, async (request, accessToken, refreshToken, profile, done) => {
   try {
