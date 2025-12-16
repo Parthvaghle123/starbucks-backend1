@@ -18,70 +18,106 @@ const app = express();
 const PORT = process.env.PORT || 4500;
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 
-const clientid = "1020775716394-sv2kt9rb3urv0ugt0aq1bit0du3gle37.apps.googleusercontent.com"
-const clientsecret ="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"
+const clientid =
+  "1020775716394-sv2kt9rb3urv0ugt0aq1bit0du3gle37.apps.googleusercontent.com";
+const clientsecret = "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";
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: ["https://starbucks-frontend1.vercel.app"], credentials: true }));
+app.use(
+  cors({
+    origin: ["https://starbucks-frontend1.vercel.app"],
+    credentials: true,
+  })
+);
 
-app.use(session({
-  secret: "15672983hakdhfjkdsd",
-  resave: false,
-  saveUninitialized: true,
-  cookie: { maxAge: 7*24*60*60*1000, httpOnly: true, secure: false }
-}));
+app.use(
+  session({
+    secret: "15672983hakdhfjkdsd",
+    resave: false,
+    saveUninitialized: true,
+    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, secure: false },
+  })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());
 
 // ==================== GOOGLE OAUTH STRATEGY ====================
-passport.use(new OAuth2Strategy({
-  clientID: clientid,
-  clientSecret: clientsecret,
-  callbackURL: "https://starbucks-backend1.onrender.com/auth/google/callback",
-  scope: ["profile","email"]
-}, async (request, accessToken, refreshToken, profile, done) => {
-  try {
-    let user = await User1.findOne({ googleId: profile.id });
-    if (!user) {
-      user = new User1({
-        googleId: profile.id,
-        username: profile.displayName,
-        email: profile.emails[0].value,
-        image: profile.photos[0].value,
-        country_code: "+91",
-        phone: null,
-        gender: null,
-        dob: null,
-        address: null
-      });
-      await user.save();
+passport.use(
+  new OAuth2Strategy(
+    {
+      clientID: clientid,
+      clientSecret: clientsecret,
+      callbackURL:
+        "https://starbucks-backend1.onrender.com/auth/google/callback",
+      scope: ["profile", "email"],
+    },
+    async (request, accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await User1.findOne({ googleId: profile.id });
+        if (!user) {
+          user = new User1({
+            googleId: profile.id,
+            username: profile.displayName,
+            email: profile.emails[0].value,
+            image: profile.photos[0].value,
+            country_code: "+91",
+            phone: null,
+            gender: null,
+            dob: null,
+            address: null,
+          });
+          await user.save();
+        }
+        done(null, user);
+      } catch (err) {
+        done(err, null);
+      }
     }
-    done(null, user);
-  } catch (err) {
-    done(err, null);
-  }
-}));
+  )
+);
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // ==================== GOOGLE AUTH ROUTES ====================
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
-app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "https://starbucks-frontend1.vercel.app/login" }), (req, res) => {
-  // Generate JWT token for the authenticated user
-  const token = jwt.sign({ id: req.user._id, email: req.user.email }, SECRET_KEY, { expiresIn: "7d" });
-  // Redirect to home with token and username in query params
-  res.redirect(`https://starbucks-frontend1.vercel.app/home?token=${token}&username=${req.user.username}`);
-});
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "https://starbucks-frontend1.vercel.app/login",
+  }),
+  (req, res) => {
+    // Generate JWT token for the authenticated user
+    const token = jwt.sign(
+      { id: req.user._id, email: req.user.email },
+      SECRET_KEY,
+      { expiresIn: "7d" }
+    );
+    // Redirect to home with token and username in query params
+    const isProfileComplete =
+      req.user.phone && req.user.gender && req.user.dob && req.user.address;
+    const redirectPage = isProfileComplete ? "home" : "profile";
 
+    // Redirect based on profile completion status
+    res.redirect(
+      `https://starbucks-frontend1.vercel.app/${redirectPage}?token=${token}&username=${req.user.username}`
+    );
+  }
+);
 
 // Connect MongoDB
-mongoose.connect("mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/Starbucks")
+mongoose
+  .connect(
+    "mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/Starbucks"
+  )
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB error", err));
+  .catch((err) => console.error("MongoDB error", err));
 
 // Generate Unique 4 Digit Order ID
 async function generateOrderId() {
@@ -145,13 +181,13 @@ app.get("/user/profile", authenticateToken, async (req, res) => {
 app.put("/user/profile", authenticateToken, async (req, res) => {
   try {
     const { username, phone, gender, dob, address } = req.body;
-    
+
     let user = await User1.findById(req.user.id);
-    
+
     if (!user) {
       user = await User.findById(req.user.id);
     }
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -163,11 +199,13 @@ app.put("/user/profile", authenticateToken, async (req, res) => {
     if (address) user.address = address;
 
     await user.save();
-    
+
     res.json({ success: true, message: "Profile updated successfully", user });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error updating profile", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Error updating profile", error: err.message });
   }
 });
 // Verify Email Exists
@@ -233,15 +271,21 @@ app.post("/login", async (req, res) => {
 });
 
 // Logout: mark user as inactive
-app.post('/logout', authenticateToken, async (req, res) => {
+app.post("/logout", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    user.status = 'inactive';
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.status = "inactive";
     await user.save();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to logout', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to logout",
+        error: err.message,
+      });
   }
 });
 
@@ -251,13 +295,19 @@ app.post("/register", async (req, res) => {
 
     // ✅ Password length check
     if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be maximum 8 characters" });
+      return res
+        .status(400)
+        .json({ message: "Password must be maximum 8 characters" });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
 
-    const newUser = await User.create({ ...req.body, email: email.toLowerCase() });
+    const newUser = await User.create({
+      ...req.body,
+      email: email.toLowerCase(),
+    });
     res.status(200).json({ success: true, user: newUser });
   } catch (err) {
     res.status(500).json({ message: "Something went wrong", error: err });
@@ -276,7 +326,9 @@ app.post("/add-to-cart", authenticateToken, async (req, res) => {
       cart = new Cart({ userId, items: [] });
     }
 
-    const existingItem = cart.items.find((item) => item.productId === productId);
+    const existingItem = cart.items.find(
+      (item) => item.productId === productId
+    );
 
     if (existingItem) {
       return res.status(400).json({ message: "Item already in cart" });
@@ -298,16 +350,17 @@ app.get("/cart", authenticateToken, async (req, res) => {
     const cart = await Cart.findOne({ userId });
     if (!cart) return res.json({ cart: [] });
 
-    const fullCart = cart.items.map(item => ({
+    const fullCart = cart.items.map((item) => ({
       ...item._doc,
-      total: item.price * item.quantity
+      total: item.price * item.quantity,
     }));
 
     res.json({ cart: fullCart });
   } catch (err) {
     res.status(500).json({ message: "Error", error: err.message });
   }
-});app.put("/update-quantity/:productId", authenticateToken, async (req, res) => {
+});
+app.put("/update-quantity/:productId", authenticateToken, async (req, res) => {
   const { productId } = req.params;
   const { action } = req.body;
   const userId = req.user.id;
@@ -332,19 +385,23 @@ app.get("/cart", authenticateToken, async (req, res) => {
 });
 
 // Remove from cart
-app.delete("/remove-from-cart/:productId", authenticateToken, async (req, res) => {
-  const { productId } = req.params;
-  const userId = req.user.id;
+app.delete(
+  "/remove-from-cart/:productId",
+  authenticateToken,
+  async (req, res) => {
+    const { productId } = req.params;
+    const userId = req.user.id;
 
-  try {
-    const cart = await Cart.findOne({ userId });
-    cart.items = cart.items.filter((item) => item.productId !== productId);
-    await cart.save();
-    res.status(200).json({ message: "Item removed" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    try {
+      const cart = await Cart.findOne({ userId });
+      cart.items = cart.items.filter((item) => item.productId !== productId);
+      await cart.save();
+      res.status(200).json({ message: "Item removed" });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
   }
-});
+);
 
 // Place Order API
 app.post("/order", authenticateToken, async (req, res) => {
@@ -386,7 +443,9 @@ app.post("/order", authenticateToken, async (req, res) => {
 // Fetch orders
 app.get("/orders", authenticateToken, async (req, res) => {
   try {
-    const orders = await Order.find({ email: req.user.email }).sort({ createdAt: -1 });
+    const orders = await Order.find({ email: req.user.email }).sort({
+      createdAt: -1,
+    });
     res.status(200).json(orders);
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -412,7 +471,7 @@ app.put("/api/cancel-order/:orderId", authenticateToken, async (req, res) => {
 
     order.status = "Cancelled";
     order.cancelReason = reason;
-    order.items.forEach(item => item.status = "Cancelled");
+    order.items.forEach((item) => (item.status = "Cancelled"));
 
     await order.save();
     res.status(200).json({ message: "Order cancelled successfully" });
@@ -422,26 +481,29 @@ app.put("/api/cancel-order/:orderId", authenticateToken, async (req, res) => {
 });
 
 // Admin credentials (for demo; use env vars/db in production)
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'admin123';
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "admin123";
 
 // Admin login endpoint
-app.post('/admin/login', (req, res) => {
+app.post("/admin/login", (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign({ admin: true, username }, SECRET_KEY, { expiresIn: '1d' });
+    const token = jwt.sign({ admin: true, username }, SECRET_KEY, {
+      expiresIn: "1d",
+    });
     return res.json({ success: true, token });
   }
-  res.json({ success: false, message: 'Invalid admin credentials' });
+  res.json({ success: false, message: "Invalid admin credentials" });
 });
 
 // Admin authentication middleware
 const authenticateAdmin = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Admin token required' });
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Admin token required" });
   jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err || !user.admin) return res.status(403).json({ message: 'Invalid admin token' });
+    if (err || !user.admin)
+      return res.status(403).json({ message: "Invalid admin token" });
     req.admin = user;
     next();
   });
@@ -452,18 +514,18 @@ app.get("/admin/users", authenticateAdmin, async (req, res) => {
   try {
     const [regularUsers, googleUsers] = await Promise.all([
       User.find({}).lean(),
-      User1.find({}).lean()
+      User1.find({}).lean(),
     ]);
 
     const allUsers = [
-      ...regularUsers.map(u => ({
+      ...regularUsers.map((u) => ({
         ...u,
-        loginMethod: "email"
+        loginMethod: "email",
       })),
-      ...googleUsers.map(u => ({
+      ...googleUsers.map((u) => ({
         ...u,
-        loginMethod: "google"
-      }))
+        loginMethod: "google",
+      })),
     ];
 
     const userMap = new Map();
@@ -474,7 +536,11 @@ app.get("/admin/users", authenticateAdmin, async (req, res) => {
           userMap.set(email, user);
         } else {
           const existing = userMap.get(email);
-          if (user.createdAt && (!existing.createdAt || new Date(user.createdAt) > new Date(existing.createdAt))) {
+          if (
+            user.createdAt &&
+            (!existing.createdAt ||
+              new Date(user.createdAt) > new Date(existing.createdAt))
+          ) {
             userMap.set(email, user);
           }
         }
@@ -486,9 +552,11 @@ app.get("/admin/users", authenticateAdmin, async (req, res) => {
       }
     }
 
-    const uniqueUsers = Array.from(userMap.values()).map(user => ({
+    const uniqueUsers = Array.from(userMap.values()).map((user) => ({
       ...user,
-      createdAt: user.createdAt || new Date(parseInt(user._id.toString().substring(0, 8), 16) * 1000)
+      createdAt:
+        user.createdAt ||
+        new Date(parseInt(user._id.toString().substring(0, 8), 16) * 1000),
     }));
 
     uniqueUsers.sort((a, b) => {
@@ -514,190 +582,280 @@ app.get("/admin/orders", authenticateAdmin, async (req, res) => {
 });
 
 // Admin dashboard stats endpoint
-app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+app.get("/api/admin/stats", authenticateAdmin, async (req, res) => {
   try {
     const [totalUsers, totalOrders, orders] = await Promise.all([
       User.countDocuments(),
       Order.countDocuments(),
-      Order.find({}).sort({ createdAt: -1 }).limit(5)
+      Order.find({}).sort({ createdAt: -1 }).limit(5),
     ]);
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const totalRevenue = orders.reduce(
+      (sum, order) => sum + (order.total || 0),
+      0
+    );
     res.json({
       totalUsers,
       totalOrders,
       totalRevenue,
-      recentOrders: orders
+      recentOrders: orders,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch dashboard stats', error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch dashboard stats", error: err.message });
   }
 });
 
 // Admin: Update order status
-app.put('/admin/orders/:orderId/status', authenticateAdmin, async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { status } = req.body;
-    
-    // Validate status
-    const validStatuses = ['Pending', 'Approved', 'Cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status provided' });
+app.put(
+  "/admin/orders/:orderId/status",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { status } = req.body;
+
+      // Validate status
+      const validStatuses = ["Pending", "Approved", "Cancelled"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status provided" });
+      }
+
+      const order = await Order.findByIdAndUpdate(
+        orderId,
+        { status, updatedAt: new Date() },
+        { new: true }
+      );
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      res.json({
+        success: true,
+        message: `Order status updated to ${status}`,
+        order,
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message: "Failed to update order status",
+          error: err.message,
+        });
     }
-    
-    const order = await Order.findByIdAndUpdate(
-      orderId, 
-      { status, updatedAt: new Date() }, 
-      { new: true }
-    );
-    
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-    
-    res.json({ success: true, message: `Order status updated to ${status}`, order });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to update order status', error: err.message });
   }
-});
+);
 
 // Admin: Delete user by ID
-app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+app.delete("/api/admin/users/:id", authenticateAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     await User.findByIdAndDelete(userId);
     // Optionally, delete related data (orders, carts, etc.)
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to delete user', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to delete user",
+        error: err.message,
+      });
   }
 });
 
 // ==================== PRODUCT MANAGEMENT APIs ====================
 
 // Get all products (public)
-app.get('/api/products', async (req, res) => {
+app.get("/api/products", async (req, res) => {
   try {
     const { category, featured, displayOnGift, displayOnMenu } = req.query;
     let filter = { isAvailable: true };
-    
-    if (category && category !== 'All') filter.category = category;
-    if (featured === 'true') filter.featured = true;
-    if (displayOnGift === 'true') filter.displayOnGift = true;
-    if (displayOnMenu === 'true') filter.displayOnMenu = true;
-    
+
+    if (category && category !== "All") filter.category = category;
+    if (featured === "true") filter.featured = true;
+    if (displayOnGift === "true") filter.displayOnGift = true;
+    if (displayOnMenu === "true") filter.displayOnMenu = true;
+
     const products = await Product.find(filter).sort({ createdAt: -1 });
     res.json(products);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch products', error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch products", error: err.message });
   }
 });
 
 // Admin: Get all products (with admin details)
-app.get('/admin/products', authenticateAdmin, async (req, res) => {
+app.get("/admin/products", authenticateAdmin, async (req, res) => {
   try {
     const products = await Product.find({}).sort({ createdAt: -1 });
     res.json(products);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch products', error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch products", error: err.message });
   }
 });
 
 // Admin: Create new product
-app.post('/admin/products', authenticateAdmin, async (req, res) => {
+app.post("/admin/products", authenticateAdmin, async (req, res) => {
   try {
     const product = new Product(req.body);
     await product.save();
-    res.status(201).json({ success: true, product, message: 'Product created successfully' });
+    res
+      .status(201)
+      .json({
+        success: true,
+        product,
+        message: "Product created successfully",
+      });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to create product', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to create product",
+        error: err.message,
+      });
   }
 });
 
 // Admin: Update product
-app.put('/admin/products/:id', authenticateAdmin, async (req, res) => {
+app.put("/admin/products/:id", authenticateAdmin, async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
-    
-    res.json({ success: true, product, message: 'Product updated successfully' });
+
+    res.json({
+      success: true,
+      product,
+      message: "Product updated successfully",
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to update product', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to update product",
+        error: err.message,
+      });
   }
 });
 
 // Admin: Delete product
-app.delete('/admin/products/:id', authenticateAdmin, async (req, res) => {
+app.delete("/admin/products/:id", authenticateAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    
+
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
-    
-    res.json({ success: true, message: 'Product deleted successfully' });
+
+    res.json({ success: true, message: "Product deleted successfully" });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to delete product', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to delete product",
+        error: err.message,
+      });
   }
 });
 
 // Admin: Toggle product availability
-app.patch('/admin/products/:id/toggle-availability', authenticateAdmin, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+app.patch(
+  "/admin/products/:id/toggle-availability",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const product = await Product.findById(req.params.id);
+
+      if (!product) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Product not found" });
+      }
+
+      product.isAvailable = !product.isAvailable;
+      await product.save();
+
+      res.json({
+        success: true,
+        product,
+        message: `Product ${
+          product.isAvailable ? "activated" : "deactivated"
+        } successfully`,
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message: "Failed to toggle product availability",
+          error: err.message,
+        });
     }
-    
-    product.isAvailable = !product.isAvailable;
-    await product.save();
-    
-    res.json({ 
-      success: true, 
-      product, 
-      message: `Product ${product.isAvailable ? 'activated' : 'deactivated'} successfully` 
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to toggle product availability', error: err.message });
   }
-});
+);
 
 // Admin: Toggle product display options
-app.patch('/admin/products/:id/toggle-display', authenticateAdmin, async (req, res) => {
-  try {
-    const { displayType } = req.body; // 'gift' or 'menu'
-    const product = await Product.findById(req.params.id);
-    
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+app.patch(
+  "/admin/products/:id/toggle-display",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { displayType } = req.body; // 'gift' or 'menu'
+      const product = await Product.findById(req.params.id);
+
+      if (!product) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Product not found" });
+      }
+
+      if (displayType === "gift") {
+        product.displayOnGift = !product.displayOnGift;
+      } else if (displayType === "menu") {
+        product.displayOnMenu = !product.displayOnMenu;
+      }
+
+      await product.save();
+
+      res.json({
+        success: true,
+        product,
+        message: `Product display on ${displayType} ${
+          product[displayType === "gift" ? "displayOnGift" : "displayOnMenu"]
+            ? "enabled"
+            : "disabled"
+        }`,
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({
+          success: false,
+          message: "Failed to toggle product display",
+          error: err.message,
+        });
     }
-    
-    if (displayType === 'gift') {
-      product.displayOnGift = !product.displayOnGift;
-    } else if (displayType === 'menu') {
-      product.displayOnMenu = !product.displayOnMenu;
-    }
-    
-    await product.save();
-    
-    res.json({ 
-      success: true, 
-      product, 
-      message: `Product display on ${displayType} ${product[displayType === 'gift' ? 'displayOnGift' : 'displayOnMenu'] ? 'enabled' : 'disabled'}` 
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to toggle product display', error: err.message });
   }
-});
+);
 
-
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-
+app.listen(PORT, () =>
+  console.log(`Server running on http://localhost:${PORT}`)
+);
