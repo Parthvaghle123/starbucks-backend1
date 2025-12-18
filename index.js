@@ -21,6 +21,7 @@ const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const clientid = "1020775716394-sv2kt9rb3urv0ugt0aq1bit0du3gle37.apps.googleusercontent.com"
 const clientsecret ="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"
 
+
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -69,20 +70,43 @@ passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // ==================== GOOGLE AUTH ROUTES ====================
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"], accessType: "offline", prompt: "login" }));
 app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "https://starbucks-frontend1.vercel.app/login" }), (req, res) => {
   // Generate JWT token for the authenticated user
   const token = jwt.sign({ id: req.user._id, email: req.user.email }, SECRET_KEY, { expiresIn: "7d" });
-  // Redirect to home with token and username in query params
- const isProfileComplete = req.user.phone && req.user.gender && req.user.dob && req.user.address;
+  
+  const isProfileComplete = req.user.phone && req.user.gender && req.user.dob && req.user.address;
   const redirectPage = isProfileComplete ? "home" : "profile";
   
-  // Redirect based on profile completion status
-  res.redirect(`https://starbucks-frontend1.vercel.app/${redirectPage}?token=${token}&username=${req.user.username}`);});
+  // Render a page that sends token via postMessage and closes the popup
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Google Login</title>
+      </head>
+      <body>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              token: '${token}',
+              username: '${req.user.username}',
+              redirectPage: '${redirectPage}'
+            }, 'https://starbucks-frontend1.vercel.app');
+            window.close();
+          } else {
+            window.location.href = 'https://starbucks-frontend1.vercel.app/${redirectPage}?token=${token}&username=${req.user.username}';
+          }
+        </script>
+        <p>Closing window...</p>
+      </body>
+    </html>
+  `);
+});
 
 
 // Connect MongoDB
-mongoose.connect("mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/Starbucks")
+mongoose.connect("mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/StarbucksDB")
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB error", err));
 
@@ -242,7 +266,18 @@ app.post('/logout', authenticateToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.status = 'inactive';
     await user.save();
-    res.json({ success: true });
+    
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Failed to logout', error: err.message });
+      }
+      req.session.destroy((sessionErr) => {
+        if (sessionErr) {
+          return res.status(500).json({ success: false, message: 'Failed to destroy session', error: sessionErr.message });
+        }
+        res.json({ success: true });
+      });
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to logout', error: err.message });
   }
