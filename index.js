@@ -106,7 +106,7 @@ app.get("/auth/google/callback", passport.authenticate("google", { failureRedire
 
 
 // Connect MongoDB
-mongoose.connect("mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/StarbucksDB")
+mongoose.connect("mongodb+srv://vaghelasahil1402_db_user:parth@cluster0.ht5lfrp.mongodb.net/Starbucks")
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB error", err));
 
