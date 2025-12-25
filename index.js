@@ -73,7 +73,7 @@ passport.deserializeUser((user, done) => done(null, user));
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"], accessType: "offline", prompt: "login" }));
 app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "https://starbucks-frontend1.vercel.app/login" }), (req, res) => {
   // Generate JWT token for the authenticated user
-  const token = jwt.sign({ id: req.user._id, email: req.user.email }, SECRET_KEY, { expiresIn: "7d" });
+  const token = jwt.sign({ id: req.user._id, email: req.user.email }, SECRET_KEY, { expiresIn: "1m" });
   
   const isProfileComplete = req.user.phone && req.user.gender && req.user.dob && req.user.address;
   const redirectPage = isProfileComplete ? "home" : "profile";
@@ -253,7 +253,7 @@ app.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id, email: user.email }, SECRET_KEY, {
-    expiresIn: "7d",
+    expiresIn: "1m",
   });
 
   res.json({ message: "Success", token, username: user.username });
@@ -467,7 +467,7 @@ const ADMIN_PASS = 'admin123';
 app.post('/admin/login', (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign({ admin: true, username }, SECRET_KEY, { expiresIn: '1d' });
+    const token = jwt.sign({ admin: true, username }, SECRET_KEY, { expiresIn: '1m' });
     return res.json({ success: true, token });
   }
   res.json({ success: false, message: 'Invalid admin credentials' });
