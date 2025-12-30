@@ -22,7 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 4500;
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const FRONTEND_URL = process.env.NODE_ENV === 'production' 
-  ? "https://starbucks-frontend-six.vercel.app" 
+  ? "https://starbucks-frontend1.vercel.app" 
   : "http://localhost:4800";
 
 const clientid = "1020775716394-sv2kt9rb3urv0ugt0aq1bit0du3gle37.apps.googleusercontent.com"
@@ -32,7 +32,7 @@ const clientsecret ="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"
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: ["http://localhost:4800", "https://starbucks-frontend-six.vercel.app"], credentials: true }));
+app.use(cors({ origin: ["http://localhost:4800", "https://starbucks-frontend1.vercel.app"], credentials: true }));
 
 app.use(session({
   secret: "15672983hakdhfjkdsd",
@@ -77,7 +77,7 @@ passport.deserializeUser((user, done) => done(null, user));
 
 // ==================== GOOGLE AUTH ROUTES ====================
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"], accessType: "offline", prompt: "login" }));
-app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "https://starbucks-frontend-six.vercel.app/login" }), (req, res) => {
+app.get("/auth/google/callback", passport.authenticate("google", { failureRedirect: "https://starbucks-frontend1.vercel.app/login" }), (req, res) => {
   // Generate JWT token for the authenticated user
   const token = jwt.sign({ id: req.user._id, email: req.user.email }, SECRET_KEY, { expiresIn: "1d" });
   
@@ -98,10 +98,10 @@ app.get("/auth/google/callback", passport.authenticate("google", { failureRedire
               token: '${token}',
               username: '${req.user.username}',
               redirectPage: '${redirectPage}'
-            }, 'https://starbucks-frontend-six.vercel.app');
+            }, 'https://starbucks-frontend1.vercel.app');
             window.close();
           } else {
-            window.location.href = 'https://starbucks-frontend-six.vercel.app/${redirectPage}?token=${token}&username=${req.user.username}';
+            window.location.href = 'https://starbucks-frontend1.vercel.app/${redirectPage}?token=${token}&username=${req.user.username}';
           }
         </script>
         <p>Closing window...</p>
