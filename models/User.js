@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const EmployeeSchema = new mongoose.Schema({
   username: { type: String, required: true },
@@ -20,8 +21,8 @@ const EmployeeSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
-// 📅 Auto-calculate age before saving
-EmployeeSchema.pre('save', function (next) {
+// 📅 Auto-calculate age and hash password before saving
+EmployeeSchema.pre('save', async function (next) {
   if (this.dob) {
     const today = new Date();
     let age = today.getFullYear() - this.dob.getFullYear();
@@ -31,6 +32,13 @@ EmployeeSchema.pre('save', function (next) {
     }
     this.age = age; // 🎯 Save age in DB
   }
+
+  // Hash password if modified
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+
   next();
 });
 
