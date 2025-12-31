@@ -6,7 +6,7 @@ const session = require("express-session");
 const passport = require("passport");
 const OAuth2Strategy = require("passport-google-oauth2").Strategy;
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+
 
 // Models
 const User = require("./models/User");
@@ -357,19 +357,7 @@ app.post("/login", async (req, res) => {
     return res.json({ message: "No user found" });
   }
 
-  // Check if password is hashed (bcrypt) or plain text (legacy)
-  let isPasswordValid = false;
-  const isHashed = user.password && user.password.startsWith('$2');
-  
-  if (isHashed) {
-    // Hashed password - use bcrypt
-    isPasswordValid = await bcrypt.compare(password, user.password);
-  } else {
-    // Plain text password - direct comparison (legacy support)
-    isPasswordValid = user.password === password;
-  }
-
-  if (!isPasswordValid) {
+  if (user.password !== password) {
     return res.json({ message: "Password incorrect" });
   }
 
