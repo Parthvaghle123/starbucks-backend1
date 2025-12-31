@@ -238,7 +238,7 @@ app.post("/verify-email-send-otp", async (req, res) => {
       to: [{ email }],
       sender: {
         name: "Starbucks",
-        email: "vaghelasahil1402@gmail.com"
+        email: "vaghelaparth2005@gmail.com"
       },
       subject: "Password Reset OTP",
       htmlContent: `
