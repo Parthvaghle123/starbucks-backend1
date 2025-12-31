@@ -307,6 +307,42 @@ app.post("/change-password-otp", async (req, res) => {
     res.status(500).json({ success: false, message: "Password update failed" });
   }
 });
+// Verify Email Exists (legacy - keeping for compatibility)
+app.post("/verify-email", async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (user) {
+    return res.json({ exists: true });
+  } else {
+    return res.json({ exists: false });
+  }
+});
+
+app.post("/change-password", async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.json({ message: "User not found" });
+    }
+
+    // ✅ Check password length minimum 8
+    if (newPassword.length < 8) {
+      return res.json({ message: "Password must be at least 8 characters" });
+    }
+
+    user.password = newPassword; // Optional: Hash it if needed
+    await user.save();
+
+    res.json({ message: "Password updated successfully ✅" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating password" });
+  }
+});
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -821,6 +857,93 @@ app.patch('/admin/products/:id/toggle-display', authenticateAdmin, async (req, r
   }
 });
 
+
+// ==================== SMS OTP AUTHENTICATION ====================
+
+// Send OTP API
+app.post("/send-otp", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone || phone.length !== 10) {
+      return res.status(400).json({ success: false, message: "Valid 10-digit phone number required" });
+    }
+
+    // Delete existing OTP for this phone
+    await OTP.deleteMany({ phone });
+
+    // Generate new OTP
+    const otp = generateOTP();
+    
+    // Save OTP to database
+    await OTP.create({ phone, otp });
+    
+    res.json({ 
+      success: true, 
+      message: `OTP sent to +91${phone}`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to send OTP" });
+  }
+});
+
+// Verify OTP API (for SMS - keeping for future use)
+app.post("/verify-sms-otp", async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, message: "Phone and OTP required" });
+    }
+
+    // Find valid OTP
+    const otpRecord = await OTP.findOne({ 
+      phone, 
+      otp
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // Delete used OTP
+    await OTP.deleteOne({ _id: otpRecord._id });
+
+    res.json({ 
+      success: true, 
+      message: "SMS OTP verified successfully"
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Verification failed" });
+  }
+});
+
+// Resend OTP API
+app.post("/resend-otp", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({ success: false, message: "Phone number required" });
+    }
+
+    // Delete existing OTP
+    await OTP.deleteMany({ phone });
+
+    // Generate new OTP
+    const otp = generateOTP();
+    
+    // Save new OTP
+    await OTP.create({ phone, otp });
+    
+    res.json({ 
+      success: true, 
+      message: "OTP resent successfully"
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to resend OTP" });
+  }
+});
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 
