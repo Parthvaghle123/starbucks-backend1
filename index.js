@@ -6,7 +6,7 @@ const session = require("express-session");
 const passport = require("passport");
 const OAuth2Strategy = require("passport-google-oauth2").Strategy;
 const jwt = require("jsonwebtoken");
-
+const bcrypt = require("bcrypt");
 
 // Models
 const User = require("./models/User");
@@ -299,7 +299,8 @@ app.post("/change-password-otp", async (req, res) => {
       return res.json({ success: false, message: "User not found" });
     }
 
-    user.password = newPassword;
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
     await user.save();
 
     res.json({ success: true, message: "Password updated successfully" });
@@ -357,7 +358,17 @@ app.post("/login", async (req, res) => {
     return res.json({ message: "No user found" });
   }
 
-  if (user.password !== password) {
+  // Check if password is hashed (bcrypt) or plain text (legacy)
+  let isPasswordValid = false;
+  if (user.password.startsWith('$2b$')) {
+    // Hashed password - use bcrypt
+    isPasswordValid = await bcrypt.compare(password, user.password);
+  } else {
+    // Plain text password - direct comparison (legacy support)
+    isPasswordValid = user.password === password;
+  }
+
+  if (!isPasswordValid) {
     return res.json({ message: "Password incorrect" });
   }
 
@@ -398,7 +409,7 @@ app.post("/register", async (req, res) => {
 
     // ✅ Password length check
     if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters" });
+      return res.status(400).json({ message: "Password must be maximum 8 characters" });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
