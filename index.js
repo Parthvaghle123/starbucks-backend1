@@ -234,24 +234,23 @@ app.post("/verify-email-send-otp", async (req, res) => {
     const otp = generateOTP();
     await OTP.create({ email: email.toLowerCase(), otp });
 
-   const sendSmtpEmail = {
-  to: [{ email }],
-  sender: {
-    name: "Starbucks",
-    email: "vaghelasahil1402@gmail.com"
-  },
-  subject: "Password Reset OTP",
-  htmlContent: `
-    <h2>Password Reset OTP</h2>
-    <h1>${otp}</h1>
-  `,
-  headers: {
-    "X-Mailin-IgnoreUnsubscribed": "true"
-  }
-};
+    const sendSmtpEmail = {
+      to: [{ email }],
+      sender: {
+        name: "Starbucks",
+        email: "vaghelasahil1402@gmail.com"
+      },
+      subject: "Password Reset OTP",
+      htmlContent: `
+        <div style="font-family:Arial">
+          <h2>Password Reset OTP</h2>
+          <h1 style="color:#00754a">${otp}</h1>
+          <p>This OTP is valid for <b>5 minutes</b>.</p>
+        </div>
+      `
+    };
 
-await emailApi.sendTransacEmail(sendSmtpEmail);
-
+    await emailApi.sendTransacEmail(sendSmtpEmail);
 
     if (process.env.NODE_ENV !== "production") {
       console.log("DEV OTP:", otp);
@@ -934,7 +933,7 @@ app.post("/resend-otp", async (req, res) => {
     const otp = generateOTP();
     
     // Save new OTP
-    await OTP.create({ phone, otp }); 
+    await OTP.create({ phone, otp });
     
     res.json({ 
       success: true, 
